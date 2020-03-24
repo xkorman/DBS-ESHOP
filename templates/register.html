@@ -1,0 +1,28 @@
+{% extends "header.html" %}
+
+{% block body %}
+
+    <div class="container">
+        <h4>Register</h4>
+        <br>
+        {% from "__formhelpers.html" import render_field %}
+        <form method="post" action="/register/">
+            <dl>
+                {{ render_field(form.user_name) }}
+                {{ render_field(form.email) }}
+                {{ render_field(form.password) }}
+                {{ render_field(form.confirm) }}
+                {{ render_field(form.full_name) }}
+                {{ render_field(form.address) }}
+            </dl>
+            <div class="form-group">
+                <button class="btn btn-lg btn-primary btn-block" type="submit">Login</button>
+            </div>
+        </form>
+
+    {% if error %}
+        <p class="alert-warning"><strong>Error</strong>{{ error }}</p>
+    {% endif %}
+    </div>
+
+{% endblock %}
