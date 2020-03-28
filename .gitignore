@@ -1,0 +1,8 @@
+*.jpg
+*.jpeg
+*.png
+/venv
+/static/images
+.idea/
+/static/fonts
+__pycache__/

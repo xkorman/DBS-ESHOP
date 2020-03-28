@@ -4,17 +4,16 @@
     <form method="post" class="form-signin" action="">
             <fieldset class="form-group">
                 <legend class="border-bottom mb-4">Log In</legend>
-                <input type="text" class="form-control" placeholder="username" name="username" value="{{ request.form.username }}">
+                <input type="text" class="form-control my-1" placeholder="username" name="username" value="{{ request.form.username }}">
                 <input type="password" class="form-control" placeholder="password" name="password" value="{{ request.form.password }}">
             </fieldset>
         <div class="form-group">
             <button class="btn btn-lg btn-primary btn-block" type="submit">Login</button>
         </div>
         <div>
-            <small>Nmeas? zaloz<a href="#">Sign</a></small>
+            <small>New acc - <a href="/register/">Sign up here</a></small>
         </div>
     </form>
 
-    <p>{{ error }}</p>
 </div>
 {% endblock %}
