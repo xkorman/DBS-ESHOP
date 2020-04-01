@@ -1,0 +1,30 @@
+{% extends 'dashboard.html' %}
+{% block dash %}
+<h2>Orders</h2>
+<div class="table-responsive">
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>UserID</th>
+      <th>User name</th>
+      <th>Date</th>
+      <th>Price</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% if orders != None %}
+  {% for order in orders %}
+    <tr>
+      <td>{{ order[0] }}</td>
+      <td>{{ order[1] }}</td>
+      <td>{{ order[5] }}</td>
+      <td>{{ order[2] }}</td>
+      <td>{{ order[3] }}</td>
+    </tr>
+  {% endfor %}
+  {% endif %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

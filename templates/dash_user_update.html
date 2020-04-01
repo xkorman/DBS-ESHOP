@@ -1,0 +1,44 @@
+{% extends 'dashboard.html' %}
+{% block dash %}
+<h2>User {{ user[1] }} {{ user[6] }}</h2>
+<div>
+{% from "__formhelpers.html" import render_field %}
+                <form method="post" action="/dashboard/users/{{ user[0] }}">
+                    {{ form.csrf | safe }}
+                  <div class="form-row">
+                    <div class="form-group col-md-6">
+                      {{ render_field(form.nick, class_='form-control', value=user[1], readonly=true) }}
+
+                    </div>
+                    <div class="form-group col-md-6">
+                      {{ render_field(form.full_name, class_='form-control', value=user[3]) }}
+                    </div>
+                  </div>
+                    <div class="form-row">
+                    <div class="form-group col-md-6">
+                      {{ render_field(form.newPass, class_='form-control') }}
+                    </div>
+                    <div class="form-group col-md-6">
+                      {{ render_field(form.confirmnew, class_='form-control') }}
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    {{ render_field(form.address, class_='form-control', value=user[4]) }}
+                  </div>
+                  <div class="form-group">
+                    {{ render_field(form.email, class_='form-control', value=user[5]) }}
+                  </div>
+
+                    <div class="custom-control custom-switch">
+                      {{ render_field(form.admin, class_='custom-control-input', checked=user[6], id="admin") }}
+                      {{ render_field(form.admin.label, class_='custom-control-label', for="admin") }}
+                    </div>
+
+
+
+                    <button type="submit" class="btn btn-primary">Update info</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+      </div>
+{% endblock %}
+
