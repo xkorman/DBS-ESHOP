@@ -1,13 +1,19 @@
 {% macro render_field(field) %}
-    <dt>{{ field.label }}</dt>
-    <dd>{{ field(**kwargs) | safe }}
+    {% if field.type != 'BooleanField' %}
+        {% if field.type == 'FileField' %}
+            {{ field.label(class_='custom-file-label', for='validatedCustomFile') }}
+        {% else %}
+            {{ field.label }}
+        {% endif %}
+    {% endif %}
+    {{ field(**kwargs) | safe }}
 
     {% if field.errors %}
-        <ul class="alert-warning">
+        <ul class="alert-danger">
             {% for error in field.errors %}
                 <li>{{ error }}</li>
             {% endfor %}
         </ul>
     {% endif %}
-    </dd>
+
 {% endmacro %}

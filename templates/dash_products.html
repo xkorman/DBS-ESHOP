@@ -1,0 +1,37 @@
+{% extends 'dashboard.html' %}
+{% block dash %}
+     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3">
+<h2>Products</h2>
+     <a class="btn btn-sm btn-success rounded" href="/dashboard/products/add/">Add product</a>
+     </div>
+<div class="table-responsive">
+<table class="table table-sm">
+  <thead class="thead-dark">
+    <tr>
+      <th>#id</th>
+      <th>Product name</th>
+      <th>Price</th>
+      <th>Description</th>
+      <th>Brand</th>
+      <th>Category</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% if products != None %}
+  {% for product in products %}
+    <tr>
+      <td>{{ product[0] }}</td>
+      <td>{{ product[1] }}</td>
+      <td>{{ product[2] }}</td>
+      <td>{{ product[3][:50] }} ...</td>
+      <td>{{ product[7] }}</td>
+      <td>{{ product[8] }}</td>
+      <td><a class="btn btn-primary" href="/dashboard/products/{{ product[0] }}/">EDIT</a></td>
+    </tr>
+  {% endfor %}
+  {% endif %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

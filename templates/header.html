@@ -6,32 +6,42 @@
 
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
 
-   </head>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+</head>
 <body>
 
 <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
-  <h5 class="my-0 mr-md-auto font-weight-normal">DKspace | E-shop</h5>
+    <h5 class="my-0 mr-md-auto font-weight-normal"><a href="/">DKspace | E-shop</a></h5>
   <nav class="my-2 my-md-0 mr-md-3">
-    <a class="p-2 text-dark" href="#">Products</a>
+    <a class="p-2 text-dark" href="/products/">Products</a>
+      {% if session['admin'] == 1 %}
+    <a class="p-2 text-dark" href="/dashboard/">Dashboard</a>
+      {% endif %}
   </nav>
+    {% if 'logged-in' in session %}
+        <a class="btn btn-secondary mx-3" href="/logout/">Logout</a>
+    {% else %}
         <a class="btn btn-secondary mx-3" href="/login/">Login</a>
         <a class="btn btn-primary" href="/register/">Sign up</a>
+    {% endif %}
 
-{#
-<a class="btn btn-secondary mx-3" href="{% url 'login' %}">Login</a>
-  <a class="btn btn-primary" href="{% url 'register' %}">Sign up</a>
-    {% endif %}#}
 </div>
-
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-warning w-75 mx-auto alert-dismissible" role="alert">
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    {{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     {% block body %}
     {% endblock %}
-
-     <!-- Optional JavaScript -->
-        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-        <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
 
 </body>
 </html>
