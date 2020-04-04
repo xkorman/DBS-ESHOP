@@ -17,6 +17,9 @@
     <h5 class="my-0 mr-md-auto font-weight-normal"><a href="/">DKspace | E-shop</a></h5>
   <nav class="my-2 my-md-0 mr-md-3">
     <a class="p-2 text-dark" href="/products/">Products</a>
+     {% if session['logged-in'] %}
+    <a class="p-2 text-dark" href="/cart/">Cart</a>
+      {% endif %}
       {% if session['admin'] == 1 %}
     <a class="p-2 text-dark" href="/dashboard/">Dashboard</a>
       {% endif %}

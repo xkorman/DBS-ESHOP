@@ -1,0 +1,31 @@
+{% extends 'dashboard.html' %}
+{% block dash %}
+     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3">
+<h2>Categories</h2>
+     <a class="btn btn-sm btn-success rounded" href="/dashboard/categories/add/">Add category</a>
+     </div>
+<div class="table-responsive">
+<table class="table table-sm">
+  <thead class="thead-dark">
+    <tr>
+      <th>#id</th>
+      <th>Category name</th>
+      <th>Description</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% if categories != None %}
+  {% for category in categories %}
+    <tr>
+      <td>{{ category[0] }}</td>
+      <td>{{ category[1] }}</td>
+      <td>{{ category[2][:50] }}{% if category[2]|length > 50 %}... {% endif %}</td>
+      <td><a class="btn btn-primary" href="/dashboard/categories/{{ category[0] }}/">EDIT</a></td>
+    </tr>
+  {% endfor %}
+  {% endif %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

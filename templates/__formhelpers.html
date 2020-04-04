@@ -6,7 +6,7 @@
             {{ field.label }}
         {% endif %}
     {% endif %}
-    {{ field(**kwargs) | safe }}
+{{ field(**kwargs) | safe }}
 
     {% if field.errors %}
         <ul class="alert-danger">
