@@ -1,7 +1,9 @@
 import os
+import random
 from datetime import date
 from functools import wraps
 
+from PIL import Image
 from faker import Faker
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_wtf.file import FileAllowed, FileRequired, FileField
@@ -19,11 +21,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app = Flask(__name__)
 app.secret_key = "898911"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-
-@app.route('/')
-def homepage():
-    return render_template("index.html")
 
 
 class RegistrationForm(Form):
@@ -163,18 +160,44 @@ def login_page():
         return render_template("login.html")
 
 
+@app.route('/', methods=['GET'], defaults={"page": 1})
+@app.route('/<int:page>', methods=['GET'])
+def index(page):
+    c, conn = connection()
+    page = page
+    per_page = 20
+    start = (page - 1) * per_page
+    end = per_page
+    c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY', (start, end))
+    products = c.fetchall()
+    # print("Result......", users)
+    return render_template("products.html", products=products)
+
+
 @app.route('/products/')
 def products_page():
     products = None
+    categories = None
     try:
         c, conn = connection()
         c.execute("SELECT * FROM product ORDER BY product_id")
         products = c.fetchall()
-        return render_template("products.html", products=products)
+        c.execute("SELECT * FROM category ORDER BY category_id")
+        categories = c.fetchall()
+        return render_template("products.html", products=products, categories=categories)
 
     except Exception as e:
         flash(e)
-        return render_template("products.html", products=products)
+        return render_template("products.html", products=products, categories=categories)
+
+
+@app.route('/products/filter/<category_id>')
+def products_page_filter(category_id):
+    c, conn = connection()
+    c.execute('SELECT * FROM product WHERE cid=%s', category_id)
+    products = c.fetchall()
+    print(f"{products}")
+    return render_template("products.html", products=products)
 
 
 @app.route('/dashboard/')
@@ -315,26 +338,31 @@ def dash_product_add():
         if request.method == 'POST':
 
             product_name = form.product_name.data
-            price = form.product_price.data
+            price = form.product_price._value()
             product_description = form.product_description.data
             file = request.files['product_image']
             if file is not None:
-                filename = secure_filename(file.filename)
-                pathname = '/static/images/products/' + filename
+                c.execute("SELECT nextval('product_product_id_seq')")
+                id = c.fetchone()
+                filename = str(id[0]) + '_' + file.filename
+                pathname = '/static/images/products/thumbs/' + filename
             else:
-                pathname = ''
+                id = 0
+                pathname = '../default.jpg'
             bid = form.bid.data
             cid = form.cid.data
-
             c.execute(
                 'INSERT INTO product(product_name, product_price, product_description, product_image, bid, cid) '
                 'VALUES (%s, %s, %s, %s, %s, %s)',
-                (product_name, int(price), product_description, pathname, int(bid), int(cid)))
+                (product_name, float(price), product_description, pathname, bid, cid))
             conn.commit()
 
             flash("Product has been added")
             if file.filename is not '':
+                filename = str(id[0]) + '_' + file.filename
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                im = Image.open(os.path.join(app.config['UPLOAD_FOLDER'] + filename))
+                crop_image(im, filename)
 
             c.close()
             conn.close()
@@ -375,18 +403,22 @@ def dash_product_page_id(product_id):
             cid = form.cid.data
 
             if file.filename is not '':
-                filename = secure_filename(file.filename)
-                pathname = '/static/images/products/' + filename
+                filename = str(product[0]) + '_' + file.filename
+                pathname = '/static/images/products/thumbs/' + filename
 
                 c.execute('UPDATE product SET product_name = %s, product_price=%s, product_description=%s, '
                           'product_image=%s, bid=%s, cid=%s '
-                          'WHERE product_id=%s', (product_name, price, product_description, pathname, bid, cid,
+                          'WHERE product_id=%s', (product_name, float(price), product_description, pathname, bid, cid,
                                                   product[0]))
+
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                im = Image.open(os.path.join(app.config['UPLOAD_FOLDER'] + filename))
+                crop_image(im, filename)
             else:
 
                 c.execute('UPDATE product SET product_name = %s, product_price=%s, product_description=%s, '
                           'bid=%s, cid=%s '
-                          'WHERE product_id=%s', (product_name, price, product_description, bid, cid, product[0]))
+                          'WHERE product_id=%s', (product_name, float(price), product_description, bid, cid, product[0]))
 
             conn.commit()
 
@@ -435,7 +467,6 @@ def dash_brand_add():
     try:
 
         if request.method == 'POST' and form.validate():
-
             brand_name = form.brand_name.data
             quality = form.quality._value()
             brand_description = form.brand_description.data
@@ -529,7 +560,6 @@ def dash_category_add():
     try:
 
         if request.method == 'POST' and form.validate():
-
             brand_name = form.brand_name.data
             brand_description = form.brand_description.data
 
@@ -603,8 +633,7 @@ def cart_page():
     products = None
     c, conn = connection()
 
-    c.execute('SELECT * FROM "order" WHERE user_id=%s AND open=True' % session['user_id'])
-    orders = c.fetchone()
+    orders = find_order(c)
 
     if orders is not None:
         id = orders[0]
@@ -619,19 +648,26 @@ def cart_page():
         return render_template("cart.html", products=products, order_info=orders)
 
 
+def find_order(c):
+    c.execute('SELECT * FROM "order" WHERE user_id=%s AND open=True' % session['user_id'])
+    orders = c.fetchone()
+
+    return orders
+
+
 @app.route('/cart/update', methods=['POST'])
 @login_required
 def cart_update_count():
     c, conn = connection()
     count = request.form['count']
-    id = request.form['order_item_id']
+    order_item_id = request.form['order_item_id']
     try:
         if request.method == 'POST':
 
             if count != '0':
-                c.execute('UPDATE order_item SET "count"=%s WHERE order_item_id=%s', (count, id))
+                c.execute('UPDATE order_item SET "count"=%s WHERE order_item_id=%s', (count, order_item_id))
             else:
-                c.execute('DELETE FROM order_item WHERE order_item_id=%s', [id])
+                c.execute('DELETE FROM order_item WHERE order_item_id=%s', [order_item_id])
 
             conn.commit()
             c.close()
@@ -649,7 +685,6 @@ def cart_confirm():
 
     try:
         if request.method == 'POST':
-
             c.execute('UPDATE "order" SET "date"=%s, price=%s, "open"=%s WHERE order_id=%s',
                       (date.today().strftime('%Y/%m/%d'), request.form['price_of_order'], False,
                        request.form['order_id']))
@@ -663,12 +698,97 @@ def cart_confirm():
         flash(f"{e}")
         return redirect(url_for('cart_page'))
 
-# def do_faker():
-#     faker = Faker('cz_CZ')
-#     print(f"{faker.region(), faker.address(), faker.email()}")
-#
-#
-# do_faker()
+
+def find_product(c, product_id, order_id):
+    c.execute('SELECT order_id FROM order_item WHERE product_id=%s AND order_id=%s', (product_id, order_id))
+    orders = c.fetchone()
+
+    return orders
+
+
+@app.route('/cart/add', methods=['POST'])
+@login_required
+def cart_page_add():
+    c, conn = connection()
+
+    orders = find_order(c)
+    product_id = request.form['product_id']
+    try:
+        if orders is not None:
+            print(f"{find_product(c, product_id, orders[0])}")
+            if find_product(c, product_id, orders[0]) is None:
+                c.execute('INSERT INTO order_item(product_id, order_id, count) VALUES (%s, %s, %s)',
+                          (product_id, orders[0], 1))
+            else:
+                c.execute('UPDATE order_item SET count=count + 1 WHERE product_id=%s AND order_id=%s',
+                          (product_id, orders[0]))
+
+        else:
+            c.execute('INSERT INTO "order"(user_id) VALUES (%s)' % session['user_id'])
+
+            conn.commit()
+            orders = find_order(c)
+            c.execute('INSERT INTO order_item(product_id, order_id, count) VALUES (%s, %s, %s)',
+                      (request.form['product_id'], orders[0], 1))
+        conn.commit()
+        c.close()
+        conn.close()
+
+        flash("Added to cart")
+        return redirect(url_for('products_page'))
+
+    except Exception as e:
+        print(f"{e}")
+        flash(f"{e}")
+        return redirect(url_for('products_page'))
+
+
+def crop_image(image, filename):
+    width = image.size[0]
+    height = image.size[1]
+    aspect = width / float(height)
+
+    ideal_width = 300
+    ideal_height = 200
+
+    ideal_aspect = ideal_width / float(ideal_height)
+    if aspect > ideal_aspect:
+        # Then crop the left and right edges:
+        new_width = int(ideal_aspect * height)
+        offset = (width - new_width) / 2
+        resize = (offset, 0, width - offset, height)
+    else:
+        # ... crop the top and bottom:
+        new_height = int(width / ideal_aspect)
+        offset = (height - new_height) / 2
+        resize = (0, offset, width, height - offset)
+
+    thumb = image.crop(resize).resize((ideal_width, ideal_height), Image.ANTIALIAS)
+    thumb.save(os.path.join(app.config['UPLOAD_FOLDER'] + '/thumbs/', filename))
+
+
+def do_faker():
+     faker = Faker('cz_CZ')
+     c, conn = connection()
+     for i in range(100):
+        product_names = faker.words()
+        product_name = ''.join(product_names)
+        price = round(random.uniform(1, 10000), 2)
+        product_description = faker.sentence()
+        pathname = '/static/images/products/default.jpg'
+        bid = int(round(random.uniform(1, 3), 0))
+        cid = int(round(random.uniform(1, 4), 0))
+
+        c.execute(
+            'INSERT INTO product(product_name, product_price, product_description, product_image, bid, cid) '
+            'VALUES (%s, %s, %s, %s, %s, %s)',
+            (product_name, price, product_description, pathname, bid, cid))
+        conn.commit()
+
+        print(f"{product_name, price, product_description, pathname, bid, cid}")
+
+
+#do_faker()
 
 
 if __name__ == '__main__':

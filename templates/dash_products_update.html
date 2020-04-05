@@ -1,6 +1,13 @@
 {% extends 'dashboard.html' %}
 {% block dash %}
-<h2>Product - {{ product[1] }}</h2>
+    <div class="row">
+        <div class="w-auto m-3">
+            <img src="../../../{{ product[4] }}" alt="{{ product[0] }}img" class="rounded" height="100px">
+        </div>
+        <h2 class="w-auto mt-3">{{ product[1] }}</h2>
+
+    </div>
+
 <div>
 {% from "__formhelpers.html" import render_field %}
                 <form method="post" action="/dashboard/products/{{ product[0] }}/" enctype="multipart/form-data">
@@ -18,9 +25,9 @@
                 <textarea class="form-control" id="product_description" name="product_description" rows="10">{{ product[3] }}</textarea>
 
             </div>
-                <div class="custom-file">
-                    {{ render_field(form.product_image, class_='custom-file-input') }}
-                </div>
+                    <div class="custom-file">
+                        {{ render_field(form.product_image, class_='custom-file-input') }}
+                    </div>
             <div class="form-row">
                 <div class="form-group col-md-6">
                 {{ render_field(form.bid, class_='form-control', default=product[5]) }}

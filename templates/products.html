@@ -1,31 +1,28 @@
-{% extends "header.html" %}
-{% block body %}
-<div class="album py-5 bg-light">
-    <div class="container">
-        <h2 class="my-3">Products</h2>
-
+{% extends "products_header.html"  %}
+{% block products %}
         {% if products != None %}
 
             <div class="row">
 
             {% for product in products %}
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card mb-4 shadow-sm">
-                        <img src="../{{ product[4] }}" class="card-img-top s img-fluid" alt="{{ product[0] }}_img">
+                        <img src="{{ product[4] }}" class="card-img-top s img-fluid" alt="{{ product[0] }}_img">
                     <div class="card-body">
-                        <h4>{{ product[1] }}</h4>
-                        <p class="card-text">{{ product[3] }}</p>
+                        <h4><a href="/products/{{ product[0] }}" class="text-dark">{{ product[1] }}</a></h4>
+                        <p class="card-text">{{ product[3][:100] }}{% if product[3]|length > 100 %}... {% endif %}</p>
                         <small>ID: #{{ product[0] }}</small>
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="btn-group">
                             <button type="button" class="btn btn btn-outline-info">View</button>
                                 {% if 'logged-in' in session %}
-                                    <button type="button" class="btn btn btn-outline-success">
-                                        <span class="glyphicon glyphicon-shopping-cart" aria-hidden="true">BUY</span>
-                                    </button>
+                                    <form action="/cart/add" method="post">
+                                        <input type="hidden" name="product_id" value="{{ product[0] }}">
+                                        <button type="submit" class="btn btn btn-outline-success">
+                                            <span class="glyphicon glyphicon-shopping-cart" aria-hidden="true">Add to cart</span>
+                                        </button>
+                                    </form>
                                 {% endif %}
-                            </div>
-                            <div class="aler alert-primary p-2 rounded" role="alert">{{ product[2] }} €</div>
+                            <div class="aler alert-primary p-2 rounded" role="alert">{{ '%0.2f' % product[2] }} €</div>
                         </div>
                     </div>
                 </div>
@@ -35,8 +32,5 @@
         {% else %}
             <h3>None of products</h3>
         {% endif %}
-
-    </div>
-</div>
 
 {% endblock %}

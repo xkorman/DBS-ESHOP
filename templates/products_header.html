@@ -1,0 +1,40 @@
+{% extends "header.html" %}
+{% block body %}
+<div class="container-fluid">
+  <div class="row">
+    <nav class="col-md-2 d-none d-md-block pt-3 bg-light sidebar">
+      <div class="sidebar-sticky">
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a class="nav-link text-dark" href="/products/">
+              <span data-feather="home"></span>
+              All products <span class="sr-only"></span>
+            </a>
+          </li>
+            {% if categories != None %}
+                {% for category in categories %}
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" href="/products/filter/{{ category[0] }}" >
+                            {{ category[1] }}
+                        </a>
+                    </li>
+                {% endfor %}
+            {% endif %}
+
+        </ul>
+      </div>
+    </nav>
+
+    <main role="main" class="col-md-9 ml-sm-auto col-lg-9 m-auto ">
+    <div class="row">
+        <h2 class="my-3">Products</h2>
+
+            {% block products %}
+            {% endblock %}
+
+    </div>
+    </main>
+</div>
+</div>
+
+{% endblock %}
