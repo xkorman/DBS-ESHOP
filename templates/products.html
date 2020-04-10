@@ -1,7 +1,17 @@
 {% extends "products_header.html"  %}
 {% block products %}
         {% if products != None %}
-
+            {% if form != None %}
+                <div class="row">
+                    <div class="col-12 w-100 d-block my-3">
+                        {% from "__formhelpers.html" import render_field %}
+                        <form method="post" action="/" class="form-inline">
+                            {{ render_field(form.find_name, class_='form-control mx-3') }}
+                            <button type="submit" class="btn btn-primary">Find</button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
             <div class="row">
 
             {% for product in products %}
@@ -28,6 +38,19 @@
                 </div>
             </div>
             {% endfor %}
+            </div>
+             <div class="btn-group mb-3 text-center mx-auto">
+            {% if page == 1 %}
+                <a class="btn btn-light disabled">PREV</a>
+            {% else %}
+                <a class="btn btn-primary" href="/{{ page - 1 }}">PREV</a>
+            {% endif %}
+                <a class="btn btn-light">{{ page }}</a>
+            {% if products|length < 20 %}
+                <a class="btn btn-light disabled">NEXT</a>
+            {% else %}
+                <a class="btn btn-primary" href="/{{ page + 1 }}">NEXT</a>
+            {% endif %}
             </div>
         {% else %}
             <h3>None of products</h3>

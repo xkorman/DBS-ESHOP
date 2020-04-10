@@ -31,7 +31,7 @@
                       </thead>
                       <tbody>
                       {% if products != None %}
-
+                        {% set products_sum = [] -%}
                         {% for product in products -%}
                              <tr>
                                       <th scope="row" class="border-0">
@@ -59,6 +59,7 @@
                                       </td>
                                     </tr>
                                  {% if sum.append((product[5] * product[3])) %}{% endif %}
+                            {% if products_sum.append(product[3]) %}{% endif %}
                         {% endfor %}
                     {% else %}
                         <h3>Cart is empty.</h3>
@@ -83,7 +84,7 @@
                         <div class="col-6">
                             <small>Summarization</small>
                             <br>
-                            <span>2 items in order</span>
+                            <span>{{ products_sum | sum }} items in order</span>
                         </div>
                         <div class="col-6">
                             <span>Total price</span>

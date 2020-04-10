@@ -8,7 +8,7 @@
       <th>#id</th>
       <th>User name</th>
       <th>Name</th>
-      <th>Address</th>
+      <th>City</th>
       <th>Email</th>
       <th>Actions</th>
     </tr>
@@ -16,12 +16,12 @@
   <tbody>
   {% if users != None %}
   {% for user in users %}
-    <tr {% if user[6] == 1 %} class="table-secondary" {% endif %}>
+    <tr {% if user[5] == 1 %} class="table-secondary" {% endif %}>
       <td>{{ user[0] }}</td>
       <td>{{ user[1] }}</td>
       <td>{{ user[3] }}</td>
+      <td>{{ user[7] }} </td>
       <td>{{ user[4] }}</td>
-      <td>{{ user[5] }}</td>
       <td><a class="btn btn-primary" href="/dashboard/users/{{ user[0] }}/">EDIT</a></td>
     </tr>
   {% endfor %}

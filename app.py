@@ -31,6 +31,7 @@ class RegistrationForm(Form):
                                           validators.equal_to('confirm', message='Password must match')])
     confirm = PasswordField('Repeat password')
     full_name = TextField('Full-name', [validators.Length(min=5, max=50)])
+    zip = StringField(u'Select ZIP code', [validators.required(), validators.length(min=5, max=6)])
     address = TextField('Address', [validators.Length(min=5, max=250)])
 
 
@@ -41,7 +42,8 @@ class DashUserForm(Form):
                                   validators.Email()])
     newPass = PasswordField('New password', [validators.equal_to('confirmnew', message='Passwords must match')])
     confirmnew = PasswordField('Repeat new password')
-    address = StringField('Address', [validators.Length(min=5, max=250)])
+    city = StringField(u'Select ZIP code', [validators.required(), validators.length(min=5, max=6)])
+    address = TextField('Address', [validators.Length(min=5, max=250)])
     admin = BooleanField('Admin permission')
 
 
@@ -60,6 +62,10 @@ class AddBrandForm(Form):
     brand_description = TextAreaField('Description', render_kw={"rows": 10})
 
 
+class FindName(Form):
+    find_name = StringField('Name', [validators.required()])
+
+
 @app.route('/register/', methods=['GET', 'POST'])
 def register_page():
     form = RegistrationForm(request.form)
@@ -70,12 +76,22 @@ def register_page():
             email = form.email.data
             password = sha256_crypt.encrypt(str(form.password.data))
             full_name = form.full_name.data
+            city = form.zip.data
             address = form.address.data
 
-            c, conn = connection()
+            if city[3] != ' ':
+                city = city[:3] + ' ' + city[3:]
+            city_id = get_city(city)
+            if city_id is None:
+                raise ValueError('Bad zip code!')
 
-            c.execute('INSERT INTO users(user_name, password, name, address, email) VALUES (%s, %s, %s, %s, %s)',
-                      (user_name, password, full_name, address, email))
+            c, conn = connection()
+            c.execute('INSERT INTO users(user_name, password, name, email) VALUES (%s, %s, %s, %s)',
+                      (user_name, password, full_name, email))
+
+            c.execute('INSERT INTO address(user_id, city_id, part_of_city) VALUES '
+                      '((SELECT id FROM users WHERE user_name=%s), %s, %s)',
+                      (user_name, city_id, address))
             conn.commit()
 
             c.close()
@@ -85,14 +101,17 @@ def register_page():
             session['user_id'] = user_name
             session['admin'] = 0
 
-            return redirect(url_for('homepage'))
+            return redirect(url_for('index'))
         return render_template("register.html", form=form)
-
+    except ValueError as e:
+        flash(f"{e}")
+        return render_template("register.html", form=form)
     except IntegrityError:
         flash("Username already used")
         return render_template("register.html", form=form)
     except Exception as e:
         flash(f"{e}")
+        print(f"{e}")
         return render_template("register.html", form=form)
 
 
@@ -118,9 +137,41 @@ def admin_required(f):
             return f(*args, **kwargs)
         else:
             flash("You have to be admin")
-            return redirect(url_for('products_page'))
+            return redirect(url_for('index'))
 
     return admin_control
+
+
+def get_state():
+    c, conn = connection()
+    choices = []
+
+    c.execute('SELECT state_id, state_name FROM state')
+
+    for row in c.fetchall():
+        choices += [(str(row[0]), str(row[1]))]
+    c.close()
+    return choices
+
+
+def get_region():
+    c, conn = connection()
+    choices = []
+
+    c.execute('SELECT region_id, region_name FROM region')
+
+    for row in c.fetchall():
+        choices += [(str(row[0]), str(row[1]))]
+    c.close()
+    return choices
+
+
+def get_city(city_zip):
+    c, conn = connection()
+    c.execute('SELECT id FROM city WHERE psc=%s', [city_zip])
+    city_id = c.fetchone()
+    c.close()
+    return city_id
 
 
 @app.route("/logout/")
@@ -128,7 +179,7 @@ def admin_required(f):
 def logout():
     session.clear()
     flash("Logged out")
-    return redirect(url_for('homepage'))
+    return redirect(url_for('index'))
 
 
 @app.route('/login/', methods=['GET', 'POST'])
@@ -144,10 +195,10 @@ def login_page():
                 session['logged-in'] = True
                 session['user_name'] = request.form['username']
                 session['user_id'] = data[0]
-                session['admin'] = data[6]
+                session['admin'] = data[5]
 
                 flash("Logged in")
-                return redirect(url_for('homepage'))
+                return redirect(url_for('index'))
             else:
                 flash("Invalid username or password")
         return render_template("login.html")
@@ -160,44 +211,42 @@ def login_page():
         return render_template("login.html")
 
 
-@app.route('/', methods=['GET'], defaults={"page": 1})
-@app.route('/<int:page>', methods=['GET'])
+@app.route('/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/products/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/<int:page>', methods=['GET', 'POST'])
 def index(page):
-    c, conn = connection()
-    page = page
-    per_page = 20
-    start = (page - 1) * per_page
-    end = per_page
-    c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY', (start, end))
-    products = c.fetchall()
-    # print("Result......", users)
-    return render_template("products.html", products=products)
-
-
-@app.route('/products/')
-def products_page():
+    form = FindName(request.form)
     products = None
     categories = None
+
     try:
         c, conn = connection()
-        c.execute("SELECT * FROM product ORDER BY product_id")
-        products = c.fetchall()
-        c.execute("SELECT * FROM category ORDER BY category_id")
-        categories = c.fetchall()
-        return render_template("products.html", products=products, categories=categories)
+        categories = get_categories()
 
+        if request.method == 'POST':
+            c.execute('SELECT * FROM product WHERE UPPER(product_name) LIKE UPPER(%s)', ['%' + form.find_name.data + '%'])
+            products = c.fetchall()
+            return render_template("products.html", form=form, page=page, products=products, categories=categories)
+        else:
+            page = page
+            per_page = 20
+            start = (page - 1) * per_page
+            end = per_page
+            c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY', (start, end))
+            products = c.fetchall()
+            return render_template("products.html", form=form, page=page, products=products, categories=categories)
     except Exception as e:
         flash(e)
-        return render_template("products.html", products=products, categories=categories)
+        return render_template("products.html", form=form, page=page, products=products, categories=categories)
 
 
 @app.route('/products/filter/<category_id>')
 def products_page_filter(category_id):
     c, conn = connection()
-    c.execute('SELECT * FROM product WHERE cid=%s', category_id)
+    categories = get_categories()
+    c.execute('SELECT * FROM product WHERE cid=%s ORDER  BY product_id', category_id)
     products = c.fetchall()
-    print(f"{products}")
-    return render_template("products.html", products=products)
+    return render_template("products.html", products=products, categories=categories)
 
 
 @app.route('/dashboard/')
@@ -212,10 +261,16 @@ def dashboard_page():
 @admin_required
 def dash_order_page():
     c, conn = connection()
-    query_orders = 'SELECT "order".*, users.id, users.user_name FROM "order" INNER JOIN users ON user_id=id '
+    query_orders = 'SELECT "order".*, users.id, users.user_name FROM "order" ' \
+                   'INNER JOIN users ON "order".user_id=users.id ORDER BY "open" DESC'
     c.execute(query_orders)
     order_list = c.fetchall()
-    return render_template("dash_orders.html", orders=order_list)
+
+    c.execute('SELECT COUNT(order_id) FROM "order"')
+    all = c.fetchone()
+    c.execute('SELECT COUNT(order_id) FROM "order" WHERE open=TRUE ')
+    open = c.fetchone()
+    return render_template("dash_orders.html", orders=order_list, open=open, all=all)
 
 
 @app.route('/dashboard/products/')
@@ -238,9 +293,14 @@ def dash_products_page():
 def dash_users_page():
     c, conn = connection()
 
-    query_orders = 'SELECT * FROM users ORDER BY id'
+    query_orders = 'SELECT users.*, address.part_of_city, city.fullname, city.psc, region.region_name, ' \
+                   'state.state_name FROM users, address ' \
+                   'INNER JOIN city ON address.city_id=city.id ' \
+                   'INNER JOIN region ON city.region_id=region.region_id ' \
+                   'INNER JOIN state ON region.state_id=state.state_id WHERE address.user_id=users.id ORDER BY users.id'
     c.execute(query_orders)
     users_list = c.fetchall()
+    print(f"{users_list[1]}")
 
     return render_template('dash_users.html', users=users_list)
 
@@ -253,33 +313,47 @@ def dash_users_page_id(user_id):
 
     c, conn = connection()
 
-    c.execute('SELECT * FROM users WHERE id=%s', [user_id])
+    c.execute('SELECT users.*, address.part_of_city, city.psc, city.fullname, region.region_name, state.state_name '
+              'FROM users, address '
+              'INNER JOIN city ON address.city_id=city.id '
+              'INNER JOIN region ON city.region_id=region.region_id '
+              'INNER JOIN state ON region.state_id=state.state_id WHERE users.id=%s AND address.user_id=%s',
+              (user_id, user_id))
     user = c.fetchone()
 
     try:
 
-        if request.method == 'POST' and form.validate() and request.form['buttonpost'] == 'update':
+        if request.method == 'POST' and request.form['buttonpost'] == 'update':
             user_name = form.nick._value()
             email = form.email.data
             password = sha256_crypt.encrypt(str(form.newPass.data))
             full_name = form.full_name.data
             address = form.address.data
             admin = form.admin.data
-
-            c, conn = connection()
+            city = form.city.data
+            if city[3] != ' ':
+                city = city[:3] + ' ' + city[3:]
+            city_id = get_city(city)
+            if city_id is None:
+                raise ValueError('Bad zip code!')
 
             if password == '':
-                c.execute('UPDATE users SET name=%s, address=%s, email=%s permission=%s WHERE user_name=%s',
-                          (full_name, address, email, admin, user_name))
+                c.execute('UPDATE address SET city_id=%s, part_of_city=%s WHERE user_id=%s', (city_id, address,
+                                                                                              user_id))
+                c.execute('UPDATE users SET name=%s, email=%s, permission=%s WHERE user_name=%s',
+                          (full_name, email, admin, user_name))
             else:
-                c.execute('UPDATE users SET password = %s, name=%s, address=%s, email=%s, permission=%s '
-                          'WHERE user_name=%s', (password, full_name, address, email, admin, user_name))
+                c.execute('UPDATE address SET city_id=%s, part_of_city=%s WHERE user_id=%s', (city_id, address,
+                                                                                              user_id))
+                c.execute('UPDATE users SET password = %s, name=%s, email=%s, permission=%s '
+                          'WHERE user_name=%s', (password, full_name, email, admin, user_name))
             conn.commit()
 
             c.close()
             conn.close()
 
             return redirect(url_for('dash_users_page'))
+
 
         elif request.method == 'POST' and request.form['buttonpost'] == 'delete':
             c, conn = connection()
@@ -289,9 +363,16 @@ def dash_users_page_id(user_id):
             conn.close()
             return redirect(url_for('dash_users_page'))
         else:
+            form.process()
             return render_template("dash_user_update.html", user=user, form=form)
+    except ValueError as e:
+        flash(e)
+        form.process()
+        return render_template("dash_user_update.html", user=user, form=form)
     except Exception as e:
         flash(f"{e}")
+        print(f"{e}")
+        form.process()
         return render_template("dash_user_update.html", user=user, form=form)
 
 
@@ -418,7 +499,8 @@ def dash_product_page_id(product_id):
 
                 c.execute('UPDATE product SET product_name = %s, product_price=%s, product_description=%s, '
                           'bid=%s, cid=%s '
-                          'WHERE product_id=%s', (product_name, float(price), product_description, bid, cid, product[0]))
+                          'WHERE product_id=%s',
+                          (product_name, float(price), product_description, bid, cid, product[0]))
 
             conn.commit()
 
@@ -726,7 +808,6 @@ def cart_page_add():
         else:
             c.execute('INSERT INTO "order"(user_id) VALUES (%s)' % session['user_id'])
 
-            conn.commit()
             orders = find_order(c)
             c.execute('INSERT INTO order_item(product_id, order_id, count) VALUES (%s, %s, %s)',
                       (request.form['product_id'], orders[0], 1))
@@ -735,12 +816,12 @@ def cart_page_add():
         conn.close()
 
         flash("Added to cart")
-        return redirect(url_for('products_page'))
+        return redirect(url_for('index'))
 
     except Exception as e:
         print(f"{e}")
         flash(f"{e}")
-        return redirect(url_for('products_page'))
+        return redirect(url_for('index'))
 
 
 def crop_image(image, filename):
@@ -766,29 +847,36 @@ def crop_image(image, filename):
     thumb = image.crop(resize).resize((ideal_width, ideal_height), Image.ANTIALIAS)
     thumb.save(os.path.join(app.config['UPLOAD_FOLDER'] + '/thumbs/', filename))
 
-
 def do_faker():
-     faker = Faker('cz_CZ')
-     c, conn = connection()
-     for i in range(100):
-        product_names = faker.words()
-        product_name = ''.join(product_names)
-        price = round(random.uniform(1, 10000), 2)
-        product_description = faker.sentence()
-        pathname = '/static/images/products/default.jpg'
-        bid = int(round(random.uniform(1, 3), 0))
-        cid = int(round(random.uniform(1, 4), 0))
+    faker = Faker('cz_CZ')
+    c, conn = connection()
+    password = sha256_crypt.encrypt('password')
 
-        c.execute(
-            'INSERT INTO product(product_name, product_price, product_description, product_image, bid, cid) '
-            'VALUES (%s, %s, %s, %s, %s, %s)',
-            (product_name, price, product_description, pathname, bid, cid))
-        conn.commit()
+    for i in range(90000):
+        try:
+            user_name = faker.user_name()
+            full_name = faker.name()
+            city_id = random.randrange(1, 4208)
+            address = faker.street_address()
 
-        print(f"{product_name, price, product_description, pathname, bid, cid}")
+            email = faker.safe_email()
+
+            print(f"{i, user_name, password, full_name, email, user_name, city_id, address}")
+            c.execute('INSERT INTO users(user_name, password, name, email) VALUES (%s, %s, %s, %s)',
+                      (user_name, password, full_name, email))
+
+            c.execute('INSERT INTO address(user_id, city_id, part_of_city) VALUES '
+                      '((SELECT id FROM users WHERE user_name=%s), %s, %s)',
+                      (user_name, city_id, address))
+            conn.commit()
+
+        except Exception as e:
+            conn.rollback()
+            print(f"{e}")
 
 
-#do_faker()
+
+do_faker()
 
 
 if __name__ == '__main__':

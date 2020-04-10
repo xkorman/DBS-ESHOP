@@ -1,6 +1,6 @@
 {% extends 'dashboard.html' %}
 {% block dash %}
-<h2>Orders</h2>
+<h2>Orders - {{ open[0] }} not ordered / {{ all[0] }} all</h2>
 <div class="table-responsive">
 <table class="table table-sm">
   <thead class="thead-dark">
@@ -16,7 +16,7 @@
   <tbody>
   {% if orders != None %}
   {% for order in orders %}
-    <tr>
+    <tr {% if order[4] == False  %} class="table-success" {% endif %}>
       <td>{{ order[0] }}</td>
       <td>{{ order[1] }}</td>
       <td>{{ order[5] }}</td>

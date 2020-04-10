@@ -23,15 +23,22 @@
                       {{ render_field(form.confirmnew, class_='form-control') }}
                     </div>
                   </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            {{ render_field(form.email, class_='form-control', value=user[4]) }}
+                        </div>
+                        <div class="form-group col-md-6">
+                            {{ render_field(form.city, class_='form-control', value=user[7]) }}
+                            <small id="emailHelp" class="form-text text-muted">{{ user[6] }}, {{ user[7] }} {{ user[8] }}, {{ user[9] }}, {{ user[10] }}</small>
+                        </div>
+                    </div>
                   <div class="form-group">
-                    {{ render_field(form.address, class_='form-control', value=user[4]) }}
+                    {{ render_field(form.address, class_='form-control', value=user[6]) }}
                   </div>
-                  <div class="form-group">
-                    {{ render_field(form.email, class_='form-control', value=user[5]) }}
-                  </div>
+
                     <div class="form-group">
                         <div class="custom-control custom-switch">
-                          {{ render_field(form.admin, class_='custom-control-input', checked=user[6], id="admin") }}
+                          {{ render_field(form.admin, class_='custom-control-input', checked=user[5], id="admin") }}
                           {{ render_field(form.admin.label, class_='custom-control-label', for="admin") }}
                         </div>
                     </div>
