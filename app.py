@@ -224,7 +224,8 @@ def index(page):
         categories = get_categories()
 
         if request.method == 'POST':
-            c.execute('SELECT * FROM product WHERE UPPER(product_name) LIKE UPPER(%s)', ['%' + form.find_name.data + '%'])
+            c.execute('SELECT * FROM product WHERE UPPER(product_name) LIKE UPPER(%s)',
+                      ['%' + form.find_name.data + '%'])
             products = c.fetchall()
             return render_template("products.html", form=form, page=page, products=products, categories=categories)
         else:
@@ -232,7 +233,8 @@ def index(page):
             per_page = 20
             start = (page - 1) * per_page
             end = per_page
-            c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY', (start, end))
+            c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY',
+                      (start, end))
             products = c.fetchall()
             return render_template("products.html", form=form, page=page, products=products, categories=categories)
     except Exception as e:
@@ -267,42 +269,52 @@ def dash_order_page():
     order_list = c.fetchall()
 
     c.execute('SELECT COUNT(order_id) FROM "order"')
-    all = c.fetchone()
+    all_orders = c.fetchone()
     c.execute('SELECT COUNT(order_id) FROM "order" WHERE open=TRUE ')
-    open = c.fetchone()
-    return render_template("dash_orders.html", orders=order_list, open=open, all=all)
+    open_orders = c.fetchone()
+    return render_template("dash_orders.html", orders=order_list, open=open_orders, all=all_orders)
 
 
-@app.route('/dashboard/products/')
+@app.route('/dashboard/products/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/dashboard/products/page/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/dashboard/products/page/<int:page>', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def dash_products_page():
+def dash_products_page(page):
     c, conn = connection()
-
+    per_page = 100
+    start = (page - 1) * per_page
+    end = per_page
     query_orders = 'SELECT "product".*, brand_name, category_name FROM product ' \
                    'INNER JOIN brand ON bid=brand_id ' \
-                   'INNER JOIN category ON  cid=category_id ORDER BY product.product_id'
-    c.execute(query_orders)
+                   'INNER JOIN category ON  cid=category_id ORDER BY product.product_id ' \
+                   'OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY'
+    c.execute(query_orders, (start, end))
     products_list = c.fetchall()
-    return render_template("dash_products.html", products=products_list)
+    return render_template("dash_products.html", products=products_list, page=page)
 
 
-@app.route('/dashboard/users/', methods=['GET', 'POST'])
+@app.route('/dashboard/users/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/dashboard/users/page/', methods=['GET', 'POST'], defaults={"page": 1})
+@app.route('/dashboard/users/page/<int:page>', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def dash_users_page():
+def dash_users_page(page):
     c, conn = connection()
-
+    per_page = 100
+    start = (page - 1) * per_page
+    end = per_page
     query_orders = 'SELECT users.*, address.part_of_city, city.fullname, city.psc, region.region_name, ' \
                    'state.state_name FROM users, address ' \
                    'INNER JOIN city ON address.city_id=city.id ' \
                    'INNER JOIN region ON city.region_id=region.region_id ' \
-                   'INNER JOIN state ON region.state_id=state.state_id WHERE address.user_id=users.id ORDER BY users.id'
-    c.execute(query_orders)
+                   'INNER JOIN state ON region.state_id=state.state_id ' \
+                   'WHERE address.user_id=users.id ORDER BY users.id ' \
+                   'OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY'
+    c.execute(query_orders, (start, end))
     users_list = c.fetchall()
-    print(f"{users_list[1]}")
 
-    return render_template('dash_users.html', users=users_list)
+    return render_template('dash_users.html', users=users_list, page=page)
 
 
 @app.route('/dashboard/users/<user_id>/', methods=['GET', 'POST'])
@@ -353,7 +365,6 @@ def dash_users_page_id(user_id):
             conn.close()
 
             return redirect(url_for('dash_users_page'))
-
 
         elif request.method == 'POST' and request.form['buttonpost'] == 'delete':
             c, conn = connection()
@@ -424,11 +435,11 @@ def dash_product_add():
             file = request.files['product_image']
             if file is not None:
                 c.execute("SELECT nextval('product_product_id_seq')")
-                id = c.fetchone()
-                filename = str(id[0]) + '_' + file.filename
+                product_id = c.fetchone()
+                filename = str(product_id[0]) + '_' + file.filename
                 pathname = '/static/images/products/thumbs/' + filename
             else:
-                id = 0
+                product_id = 0
                 pathname = '../default.jpg'
             bid = form.bid.data
             cid = form.cid.data
@@ -440,7 +451,7 @@ def dash_product_add():
 
             flash("Product has been added")
             if file.filename is not '':
-                filename = str(id[0]) + '_' + file.filename
+                filename = str(product_id[0]) + '_' + file.filename
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 im = Image.open(os.path.join(app.config['UPLOAD_FOLDER'] + filename))
                 crop_image(im, filename)
@@ -718,11 +729,12 @@ def cart_page():
     orders = find_order(c)
 
     if orders is not None:
-        id = orders[0]
+        order_id = orders[0]
         query_orders = ('SELECT order_item.*, product.product_name, product.product_price, product.product_image, '
                         'category.category_name FROM order_item '
                         'INNER JOIN product ON order_item.product_id=product.product_id '
-                        'INNER JOIN category ON product.cid=category.category_id WHERE order_id = %s ORDER BY product.product_id' % id)
+                        'INNER JOIN category ON product.cid=category.category_id '
+                        'WHERE order_id = %s ORDER BY product.product_id' % order_id)
         c.execute(query_orders)
         product_list = c.fetchall()
         return render_template("cart.html", products=product_list, order_info=orders)
@@ -847,7 +859,8 @@ def crop_image(image, filename):
     thumb = image.crop(resize).resize((ideal_width, ideal_height), Image.ANTIALIAS)
     thumb.save(os.path.join(app.config['UPLOAD_FOLDER'] + '/thumbs/', filename))
 
-def do_faker():
+
+def do_faker_users():
     faker = Faker('cz_CZ')
     c, conn = connection()
     password = sha256_crypt.encrypt('password')
@@ -875,8 +888,7 @@ def do_faker():
             print(f"{e}")
 
 
-
-do_faker()
+# do_faker()
 
 
 if __name__ == '__main__':

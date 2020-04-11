@@ -29,4 +29,17 @@
   </tbody>
 </table>
 </div>
+             <div class="btn-group mb-3 text-center mx-auto">
+            {% if page == 1 %}
+                <a class="btn btn-light disabled">PREV</a>
+            {% else %}
+                <a class="btn btn-primary" href="{{ page - 1 }}">PREV</a>
+            {% endif %}
+                <a class="btn btn-light">{{ page }}</a>
+            {% if users|length < 100 %}
+                <a class="btn btn-light disabled">NEXT</a>
+            {% else %}
+                <a class="btn btn-primary" href="{{ page + 1 }}">NEXT</a>
+            {% endif %}
+            </div>
 {% endblock %}
