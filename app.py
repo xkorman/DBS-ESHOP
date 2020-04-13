@@ -1,3 +1,5 @@
+import json
+
 import os
 import random
 from datetime import date
@@ -902,7 +904,95 @@ def do_faker_users():
     conn.close()
 
 
-#do_faker_users()
+def give_manu(data):
+    x = set([])
+    for p in data:
+        try:
+            x.add(p['manufacturer'])
+        except:
+            continue
+    return x
+
+
+def give_cat(data):
+    x = set([])
+    for p in data:
+        for y in p['category']:
+            x.add(y['name'])
+    return x
+
+
+def add_brand(x):
+    for manu in x:
+        name = manu
+        quality = random.randrange(0, 5)
+        descr = faker.sentence()
+        print(f"{name, quality, descr}")
+        try:
+            c.execute('INSERT INTO brand(brand_name, quality, description) VALUES (%s, %s, %s)', (name, quality, descr))
+            conn.commit()
+        except:
+            conn.rollback()
+
+
+def add_cat(x):
+    for manu in x:
+        name = manu
+        descr = faker.sentence()
+        print(f"{name, descr}")
+        try:
+            c.execute('INSERT INTO category(category_name, description) VALUES (%s, %s)', (name, descr))
+            conn.commit()
+        except:
+            conn.rollback()
+
+
+def insert_products():
+    with open('products2.json') as json_file:
+        data = json.load(json_file)
+        x = give_manu(data)
+        y = give_cat(data)
+        c, conn = connection()
+        faker = Faker('cz_CZ')
+        # add_brand(x)
+        # add_cat(y)
+        for p in data:
+            name = p['name']
+            price = p['price']
+            descr = p['description']
+            img = '/static/images/products/default.jpg'
+            try:
+                brand = p['manufacturer']
+            except:
+                brand = None
+
+            try:
+                category = p['category'][0]['name']
+            except:
+                category = None
+
+            if brand is not None and category is not None:
+                try:
+                    query = 'SELECT brand_id FROM brand WHERE brand_name LIKE %s'
+                    c.execute(query, [brand])
+                    bid = c.fetchone()
+                    if bid is None:
+                        bid = 3
+                    query = 'SELECT category_id FROM category WHERE category_name LIKE %s'
+                    c.execute(query, [category])
+                    cid = c.fetchone()
+                    if cid is None:
+                        cid = 4
+                    print(f"{name, price, descr, img, bid, cid}")
+                    c.execute('INSERT INTO product(product_name, product_price, product_description, product_image, '
+                              'bid, cid) VALUES (%s, %s, %s, %s, %s, %s)', (name, price, descr, img, bid, cid))
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    print(e)
+
+# do_faker_users()
+#insert_products()
 
 
 if __name__ == '__main__':
