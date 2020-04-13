@@ -61,6 +61,51 @@
           </button>
         </div>
       </div>
+            <h5>Most productive days - SUM of price in one day is more than <b>15 000</b> </h5>
+            <table class="table table-sm">
+              <thead class="thead-dark">
+                <tr>
+                  <th>Count of orders</th>
+                  <th>Date</th>
+                  <th>Total amount of price</th>
+                  <th>Most expensive order</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% if stat1 != None %}
+              {% for st in stat1 %}
+                <tr>
+                  <td>{{ st[0] }}</td>
+                  <td>{{ st[1] }}</td>
+                  <td>{{ st[2] }}</td>
+                  <td>{{ st[3] }} </td>
+                </tr>
+              {% endfor %}
+              {% endif %}
+              </tbody>
+            </table>
+
+            <h5>Users with a higher average order price than the average of all users</h5>
+            <table class="table table-sm">
+              <thead class="thead-dark">
+                <tr>
+                  <th>User</th>
+                  <th>Count of orders</th>
+                  <th>SUM of price</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% if stat2 != None %}
+              {% for st in stat2 %}
+                <tr>
+                  <td>{{ st[0] }}</td>
+                  <td>{{ st[1] }}</td>
+                  <td>{{ st[2] }}</td>
+                </tr>
+              {% endfor %}
+              {% endif %}
+              </tbody>
+            </table>
         {% endblock %}
     </main>
   </div>

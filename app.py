@@ -255,7 +255,17 @@ def products_page_filter(category_id):
 @login_required
 @admin_required
 def dashboard_page():
-    return render_template("dashboard.html")
+    c, conn = connection()
+    c.execute('SELECT COUNT(order_id), "date", SUM(price), MAX(price) FROM "order" '
+              'WHERE "open"=FALSE GROUP BY "date" HAVING SUM(price) > 15000 ORDER BY SUM(price) DESC ')
+    stat1 = c.fetchall()
+    c.execute('SELECT users.user_name, COUNT("order".order_id), SUM("order".price) FROM "order"'
+              'INNER JOIN users ON user_id= users.id '
+              'GROUP BY user_id, user_name HAVING SUM(price) > (SELECT AVG(price) FROM "order") '
+              'ORDER BY SUM(price) DESC')
+
+    stat2 = c.fetchall()
+    return render_template("dashboard.html", stat1=stat1, stat2=stat2)
 
 
 @app.route('/dashboard/orders/')
@@ -862,12 +872,14 @@ def crop_image(image, filename):
 
 def do_faker_users():
     faker = Faker('cz_CZ')
+    faker = Faker('sk_SK')
+    fakerr = Faker('pl_PL')
     c, conn = connection()
     password = sha256_crypt.encrypt('password')
 
-    for i in range(90000):
+    for i in range(10000):
         try:
-            user_name = faker.user_name()
+            user_name = fakerr.user_name()
             full_name = faker.name()
             city_id = random.randrange(1, 4208)
             address = faker.street_address()
@@ -886,9 +898,11 @@ def do_faker_users():
         except Exception as e:
             conn.rollback()
             print(f"{e}")
+    c.close()
+    conn.close()
 
 
-# do_faker()
+#do_faker_users()
 
 
 if __name__ == '__main__':
