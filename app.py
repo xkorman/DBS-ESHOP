@@ -1,8 +1,9 @@
+import datetime
 import json
 
 import os
 import random
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 
 from PIL import Image
@@ -259,12 +260,12 @@ def products_page_filter(category_id):
 def dashboard_page():
     c, conn = connection()
     c.execute('SELECT COUNT(order_id), "date", SUM(price), MAX(price) FROM "order" '
-              'WHERE "open"=FALSE GROUP BY "date" HAVING SUM(price) > 15000 ORDER BY SUM(price) DESC ')
+              'WHERE "open"=FALSE GROUP BY "date" HAVING SUM(price) > 15000 ORDER BY SUM(price) DESC LIMIT 50')
     stat1 = c.fetchall()
     c.execute('SELECT users.user_name, COUNT("order".order_id), SUM("order".price) FROM "order"'
               'INNER JOIN users ON user_id= users.id '
               'GROUP BY user_id, user_name HAVING SUM(price) > (SELECT AVG(price) FROM "order") '
-              'ORDER BY SUM(price) DESC')
+              'ORDER BY SUM(price) DESC LIMIT 50')
 
     stat2 = c.fetchall()
     return render_template("dashboard.html", stat1=stat1, stat2=stat2)
@@ -872,6 +873,7 @@ def crop_image(image, filename):
     thumb.save(os.path.join(app.config['UPLOAD_FOLDER'] + '/thumbs/', filename))
 
 
+# INSERTING dumb data to database
 def do_faker_users():
     faker = Faker('cz_CZ')
     faker = Faker('sk_SK')
@@ -991,9 +993,44 @@ def insert_products():
                     conn.rollback()
                     print(e)
 
-# do_faker_users()
-#insert_products()
 
+def insert_orders():
+    fake = Faker()
+    c, conn = connection()
+    c.execute('SELECT id FROM users')
+    users = c.fetchall()
+    c.execute('SELECT product_id, product_price FROM product')
+    products = c.fetchall()
+    for x in range (50000):
+        try:
+            user_id = random.choices(users)
+            start_date = datetime.date(year=2018, month=1, day=1)
+            end_date = datetime.date(year=2020, month=5, day=1)
+            date = fake.date_between(start_date=start_date, end_date=end_date)
+            date = date.strftime("%Y-%m-%d")
+            sumprice = 0
+            product_new = []
+            user_id = user_id[0][0]
+            for x in range(random.randrange(1, 15)):
+                product = random.choices(products)
+                product_new.append(product)
+                sumprice += product[0][1]
+            c.execute('INSERT INTO "order"(user_id, "date", price, "open") VALUES (%s, %s, %s ,%s) RETURNING order_id',
+                      (user_id, date, sumprice, False))
+            order_id = c.fetchone()[0]
+            for p in product_new:
+                print(p[0][1])
+                c.execute('INSERT INTO order_item(product_id, order_id, "count") VALUES (%s, %s, %s)',
+                          (p[0][0], order_id, 1))
+            conn.commit()
+        except Exception as e:
+            print(e)
+            conn.rollback()
+
+
+# do_faker_users()
+# insert_products()
+#insert_orders()
 
 if __name__ == '__main__':
     app.debug = True

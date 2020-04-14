@@ -3,6 +3,6 @@
 *.png
 /venv
 /static/images
-.idea/
+#.idea/
 /static/fonts
 __pycache__/
