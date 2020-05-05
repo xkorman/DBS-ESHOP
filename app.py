@@ -14,6 +14,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_wtf.file import FileAllowed
 from passlib.handlers.sha2_crypt import sha256_crypt
 from psycopg2._psycopg import IntegrityError
+from sqlalchemy.orm import relationship
 from wtforms import Form, TextField, validators, PasswordField, StringField, BooleanField, IntegerField, TextAreaField, \
     FileField, SelectField
 from wtforms.fields.html5 import DecimalRangeField, DecimalField
@@ -63,7 +64,8 @@ class Product(db.Model):
     product_image = db.Column(db.String(250), default='static/images/default.jpg')
     bid = db.Column(db.Integer, db.ForeignKey('brand.brand_id'), nullable=False)
     cid = db.Column(db.Integer, db.ForeignKey('category.category_id'), nullable=False)
-
+    category = relationship("Category")
+    brand = relationship("Brand")
     # db.relationship('Brand', backref='brands')
     # cid = db.relationship('Category', backref='Product', lazy=True)
 
@@ -101,7 +103,6 @@ class Brand(db.Model):
     brand_name = db.Column(db.String(250), nullable=False, unique=True)
     quality = db.Column(db.Integer)
     description = db.Column(db.String)
-    db.relationship('Product', backref='products')
 
     def __init__(self, brand_name, quality, description):
         self.brand_name = brand_name
@@ -383,6 +384,12 @@ def products_page_filter(category_id, page):
     products.addon = category
     return render_template("products.html", form=form, products=products, next=next_url, prev=prev_url,
                            categories=categories)
+
+
+@app.route('/detail/<int:product_id>/')
+def detail(product_id):
+    product = db.session.query(Product).filter(Product.product_id == product_id).first()
+    return render_template("product_detail.html", product=product)
 
 
 @app.route('/dashboard/')

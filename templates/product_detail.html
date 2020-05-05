@@ -1,0 +1,36 @@
+{% extends "header.html" %}
+{% block body %}
+<div class="container-fluid">
+  <div class="row">
+    {% if product != None %}
+      <div class="col-md-6 mx-auto mt-3">
+          <div class="row">
+            <img class="mx-auto col-md-3" src="../../{{ product.product_image }}" alt="{{ product.product_id }}_detail">
+          </div>
+          <h1 class="row-cols-6 mt-3 mx-auto text-center">
+              {{ product.product_name }}
+          </h1>
+          <div class="row">
+            <small class="mx-auto">Category: {{ product.category.category_name }}, Brand: {{ product.brand.brand_name }}</small>
+          </div>
+          <span class="row mt-3 mx-auto text-center">
+              {{ product.product_description }}
+          </span>
+          {% if 'logged-in' in session %}
+            <form action="/cart/add" method="post" class="row">
+                <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                <button type="submit" class="col-md-6 mt-3 mx-auto btn btn btn-outline-success">
+                    <span class="glyphicon glyphicon-shopping-cart" aria-hidden="true">{{ product.product_price }}</span>
+                </button>
+            </form>
+          {% else %}
+              <h3 class="row-cols-6 mx-auto text-center mt-3 btn-success p-3">{{ product.product_price }} €</h3>
+          {% endif %}
+      </div>
+  {% else %}
+  <h1>Does not exists</h1>
+  {% endif %}
+</div>
+</div>
+
+{% endblock %}

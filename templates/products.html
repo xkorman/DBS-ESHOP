@@ -29,7 +29,7 @@
                         <p class="card-text">{{ product.product_description[:100] }}{% if product.product_description|length > 100 %}... {% endif %}</p>
                         <small>ID: #{{ product.product_id }}</small>
                         <div class="d-flex justify-content-between align-items-center">
-                            <button type="button" class="btn btn btn-outline-info">View</button>
+                            <button type="button" class="btn btn btn-outline-info"><a href="/detail/{{ product.product_id }}">View</a></button>
                                 {% if 'logged-in' in session %}
                                     <form action="/cart/add" method="post">
                                         <input type="hidden" name="product_id" value="{{ product.product_id }}">
