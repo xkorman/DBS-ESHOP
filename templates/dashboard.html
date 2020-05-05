@@ -108,6 +108,35 @@
               {% endif %}
               </tbody>
             </table>
+
+            <h5>Best 3(months) ranks in year</h5>
+            <small>Every year first 3 places of rank</small>
+            <table class="table table-sm">
+              <thead class="thead-dark">
+                <tr>
+                  <th>Month of year</th>
+                  <th>Count of orders</th>
+                  <th>Rank in year</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% if stat3 != None %}
+              {% for st in stat3 %}
+                  {% if st[2] == 1 %}
+                  <tr class="table-success">
+                  {% elif st[2] == 2 %}
+                  <tr class="table-warning">
+                  {% else %}
+                  <tr class="table-danger">
+                  {% endif %}
+                  <td>{{ st[0] }}</td>
+                  <td>{{ st[1] }}</td>
+                  <td>{{ st[2] }}</td>
+                </tr>
+              {% endfor %}
+              {% endif %}
+              </tbody>
+            </table>
         {% endblock %}
     </main>
   </div>

@@ -6,3 +6,6 @@
 #.idea/
 /static/fonts
 __pycache__/
+/migrations
+/SQLs
+/XMLs

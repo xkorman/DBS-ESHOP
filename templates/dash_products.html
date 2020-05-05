@@ -27,7 +27,7 @@
       <td>{{ product[3][:50] }}{% if product[3]|length > 50 %}... {% endif %}</td>
       <td>{{ product[7] }}</td>
       <td>{{ product[8] }}</td>
-      <td><a class="btn btn-primary" href="/dashboard/products/{{ product[0] }}/">EDIT</a></td>
+      <td><a class="btn btn-primary" href="/dashboard/products/edit/{{ product[0] }}/">EDIT</a></td>
     </tr>
   {% endfor %}
   {% endif %}

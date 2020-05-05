@@ -2,7 +2,7 @@
 {% block dash %}
     <div class="row">
         <div class="w-auto m-3">
-            <img src="../../../{{ product[4] }}" alt="{{ product[0] }}img" class="rounded" height="100px">
+            <img src="../../../../{{ product[4] }}" alt="{{ product[0] }}img" class="rounded" height="100px">
         </div>
         <h2 class="w-auto mt-3">{{ product[1] }}</h2>
 
@@ -10,7 +10,7 @@
 
 <div>
 {% from "__formhelpers.html" import render_field %}
-                <form method="post" action="/dashboard/products/{{ product[0] }}/" enctype="multipart/form-data">
+                <form method="post" action="/dashboard/products/edit/{{ product[0] }}/" enctype="multipart/form-data">
             {{ form.csrf_token }}
             <div class="form-row">
                 <div class="form-group col-md-6">

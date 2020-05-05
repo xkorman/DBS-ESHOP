@@ -1,22 +1,24 @@
 import datetime
 import json
-
 import os
 import random
-from datetime import date, timedelta
+from datetime import date
 from functools import wraps
+
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 from PIL import Image
 from faker import Faker
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from flask_wtf.file import FileAllowed, FileRequired, FileField
+from flask_wtf.file import FileAllowed
 from passlib.handlers.sha2_crypt import sha256_crypt
 from psycopg2._psycopg import IntegrityError
-from werkzeug.utils import secure_filename
-
-from dbconn import connection
 from wtforms import Form, TextField, validators, PasswordField, StringField, BooleanField, IntegerField, TextAreaField, \
     FileField, SelectField
+from wtforms.fields.html5 import DecimalRangeField, DecimalField
+
+from dbconn import connection
 
 UPLOAD_FOLDER = 'static/images/products/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -24,6 +26,90 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app = Flask(__name__)
 app.secret_key = "898911"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://xkorman:password@localhost:5432/dbs_eshop"
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+
+# DATABASE
+class Users(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_name = db.Column(db.String(20), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(249), nullable=False)
+    permission = db.Column(db.Integer, default=False)
+
+    def __init__(self, user_name, password, name, email):
+        self.user_name = user_name
+        self.password = password
+        self.name = name
+        self.email = email
+
+    def __repr__(self):
+        return f"<User {self.user_name}>"
+
+
+class Product(db.Model):
+    __tablename__ = 'product'
+
+    product_id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(250), nullable=False)
+    product_price = db.Column(db.Float)
+    product_description = db.Column(db.String())
+    product_image = db.Column(db.String(250), default='static/images/default.jpg')
+    bid = db.Column(db.Integer, db.ForeignKey('brand.brand_id'), nullable=False)
+    cid = db.Column(db.Integer, db.ForeignKey('category.category_id'), nullable=False)
+
+    # db.relationship('Brand', backref='brands')
+    # cid = db.relationship('Category', backref='Product', lazy=True)
+
+    def __init__(self, product_name, product_price, product_description, product_image, bid, cid):
+        self.product_name = product_name
+        self.product_price = product_price
+        self.product_description = product_description
+        self.product_image = product_image
+        self.bid = bid
+        self.cid = cid
+
+    def __repr__(self):
+        return f"<Product {self.product_name}>"
+
+
+class Category(db.Model):
+    __tablename__ = 'category'
+
+    category_id = db.Column(db.Integer, primary_key=True)
+    category_name = db.Column(db.String(250), nullable=False, unique=True)
+    description = db.Column(db.String)
+
+    def __init__(self, category_name, description):
+        self.category_name = category_name
+        self.description = description
+
+    def __repr__(self):
+        return f"{self.category_name}"
+
+
+class Brand(db.Model):
+    __tablename__ = 'brand'
+
+    brand_id = db.Column(db.Integer, primary_key=True)
+    brand_name = db.Column(db.String(250), nullable=False, unique=True)
+    quality = db.Column(db.Integer)
+    description = db.Column(db.String)
+    db.relationship('Product', backref='products')
+
+    def __init__(self, brand_name, quality, description):
+        self.brand_name = brand_name
+        self.quality = quality
+        self.description = description
+
+    def __repr__(self):
+        return f"<Brand {self.brand_name}>"
 
 
 class RegistrationForm(Form):
@@ -66,7 +152,9 @@ class AddBrandForm(Form):
 
 
 class FindName(Form):
-    find_name = StringField('Name', [validators.required()])
+    find_name = StringField('Name')
+    find_price_min = DecimalField('Min price')
+    find_price_max = DecimalField('Max price')
 
 
 @app.route('/register/', methods=['GET', 'POST'])
@@ -188,22 +276,23 @@ def logout():
 @app.route('/login/', methods=['GET', 'POST'])
 def login_page():
     try:
-        c, conn = connection()
         if request.method == "POST":
+            user = Users.query.with_entities(Users.id, Users.user_name, Users.password, Users.name, Users.email,
+                                             Users.permission) \
+                .filter(Users.user_name == request.form['username']).first()
+            if user is not None:
+                if sha256_crypt.verify(request.form['password'], user.password):
+                    session['logged-in'] = True
+                    session['user_name'] = user.user_name
+                    session['user_id'] = user.id
+                    session['admin'] = user.permission
 
-            c.execute("SELECT * FROM users WHERE user_name = %s", [request.form['username']])
-            data = c.fetchone()
-
-            if sha256_crypt.verify(request.form['password'], data[2]):
-                session['logged-in'] = True
-                session['user_name'] = request.form['username']
-                session['user_id'] = data[0]
-                session['admin'] = data[5]
-
-                flash("Logged in")
-                return redirect(url_for('index'))
+                    flash("Logged in")
+                    return redirect(url_for('index'))
+                else:
+                    flash("Invalid username or password")
             else:
-                flash("Invalid username or password")
+                flash("User does not exists.")
         return render_template("login.html")
 
     except TypeError:
@@ -223,35 +312,77 @@ def index(page):
     categories = None
 
     try:
-        c, conn = connection()
-        categories = get_categories()
+        categories = get_categories2()
+        if request.method == 'POST' and (form.find_name.data != '' or form.find_price_min.data is not None or
+                                         form.find_price_max.data is not None):
+            print(form.find_price_min.data)
+            if form.find_price_max.data is None:
+                price_max = 0
+            else:
+                price_max = form.find_price_max.data
+            if form.find_price_min.data is None:
+                price_min = 0
+            else:
+                price_min = form.find_price_min.data
+            search = form.find_name.data + '_' + str(price_min) + '_' + str(price_max)
+            print(search)
+            return redirect(url_for('filtered', search=search, page=1))
 
-        if request.method == 'POST':
-            c.execute('SELECT * FROM product WHERE UPPER(product_name) LIKE UPPER(%s)',
-                      ['%' + form.find_name.data + '%'])
-            products = c.fetchall()
-            return render_template("products.html", form=form, page=page, products=products, categories=categories)
         else:
-            page = page
-            per_page = 20
-            start = (page - 1) * per_page
-            end = per_page
-            c.execute('SELECT * FROM product ORDER BY product_id OFFSET (%s) ROWS FETCH NEXT %s ROWS ONLY',
-                      (start, end))
-            products = c.fetchall()
-            return render_template("products.html", form=form, page=page, products=products, categories=categories)
+            products = Product.query.order_by(Product.product_id).paginate(page, 50)
+            print(products.prev_num, products.next_num)
+
+            next_url = '/' + str(products.next_num) \
+                if products.has_next else None
+            prev_url = '/' + str(products.prev_num) \
+                if products.has_prev else None
+
+            products.addon = None
+            return render_template("products.html", form=form, products=products, next=next_url, prev=prev_url,
+                                   categories=categories)
     except Exception as e:
         flash(e)
         return render_template("products.html", form=form, page=page, products=products, categories=categories)
 
 
-@app.route('/products/filter/<category_id>')
-def products_page_filter(category_id):
-    c, conn = connection()
-    categories = get_categories()
-    c.execute('SELECT * FROM product WHERE cid=%s ORDER  BY product_id', category_id)
-    products = c.fetchall()
-    return render_template("products.html", products=products, categories=categories)
+@app.route('/filtered/<search>/<int:page>', methods=['GET', 'POST'])
+def filtered(search, page):
+    form = FindName(request.form)
+    categories = get_categories2()
+    print(search)
+    new = search.split("_")
+    filter = new[0]
+    price_min = float(new[1])
+    price_max = float(new[2])
+    if price_max <= 0:
+        price_max = 999999
+    filter = "%{}%".format(filter)
+    products = Product.query.filter(Product.product_name.like(filter), Product.product_price >= price_min,
+                                    Product.product_price <= price_max).paginate(page, 50)
+    next_url = '/filtered/' + search + '/' + str(products.next_num) \
+        if products.has_next else None
+    prev_url = '/filtered/' + search + '/' + str(products.prev_num) \
+        if products.has_prev else None
+    products.addon = None
+
+    return render_template("products_filtered.html", form=form, products=products, next=next_url, prev=prev_url,
+                           categories=categories)
+
+
+@app.route('/products/filter/<category_id>/<int:page>/')
+@app.route('/products/filter/<category_id>/', defaults={"page": 1})
+def products_page_filter(category_id, page):
+    form = FindName(request.form)
+    categories = get_categories2()
+    category = Category.query.filter(Category.category_id == category_id).first()
+    products = Product.query.filter(Product.cid == category_id).paginate(page, 50)
+    next_url = '/products/filter/' + category_id + '/' + str(products.next_num) + '/' \
+        if products.has_next else None
+    prev_url = '/products/filter/' + category_id + '/' + str(products.prev_num) + '/' \
+        if products.has_prev else None
+    products.addon = category
+    return render_template("products.html", form=form, products=products, next=next_url, prev=prev_url,
+                           categories=categories)
 
 
 @app.route('/dashboard/')
@@ -266,9 +397,17 @@ def dashboard_page():
               'INNER JOIN users ON user_id= users.id '
               'GROUP BY user_id, user_name HAVING SUM(price) > (SELECT AVG(price) FROM "order") '
               'ORDER BY SUM(price) DESC LIMIT 50')
-
     stat2 = c.fetchall()
-    return render_template("dashboard.html", stat1=stat1, stat2=stat2)
+
+    c.execute('SELECT temp.name, temp.count, temp.rank, temp.years FROM ('
+              'SELECT tmp.years as years, tmp.months as name, tmp.num as count, DENSE_RANK() OVER (PARTITION BY years ORDER BY num DESC) rank FROM ('
+              'SELECT to_char("order".date, \'Mon YYYY\') AS months, to_char("order".date, \'YYYY\') AS years, '
+              'COUNT(order_id) num FROM "order" WHERE "open"=FALSE '
+              'GROUP BY months, years ORDER BY num ASC) tmp '
+              ') temp WHERE temp.rank <= 3 ORDER BY 4 DESC, 3 ASC')
+
+    stat3 = c.fetchall()
+    return render_template("dashboard.html", stat1=stat1, stat2=stat2, stat3=stat3)
 
 
 @app.route('/dashboard/orders/')
@@ -288,7 +427,6 @@ def dash_order_page():
     return render_template("dash_orders.html", orders=order_list, open=open_orders, all=all_orders)
 
 
-@app.route('/dashboard/products/', methods=['GET', 'POST'], defaults={"page": 1})
 @app.route('/dashboard/products/page/', methods=['GET', 'POST'], defaults={"page": 1})
 @app.route('/dashboard/products/page/<int:page>', methods=['GET', 'POST'])
 @login_required
@@ -414,11 +552,28 @@ def get_brands():
     return choices
 
 
+def get_categories2():
+    c, conn = connection()
+    choices = []
+
+    c.execute('SELECT category.category_id, category.category_name, COUNT(product.cid) '
+              'FROM category '
+              'JOIN product ON category.category_id = product.cid '
+              'GROUP BY category_id')
+
+    for row in c.fetchall():
+        choices += [(str(row[0]), str(row[1]), str(row[2]))]
+
+    c.close()
+    conn.close()
+    return choices
+
+
 def get_categories():
     c, conn = connection()
     choices = []
 
-    c.execute('SELECT category_id, category_name FROM category')
+    c.execute('SELECT category.category_id, category.category_name FROM category')
 
     for row in c.fetchall():
         choices += [(str(row[0]), str(row[1]))]
@@ -480,7 +635,7 @@ def dash_product_add():
         return render_template("dash_products_add.html", form=form)
 
 
-@app.route('/dashboard/products/<product_id>/', methods=['GET', 'POST'])
+@app.route('/dashboard/products/edit/<product_id>/', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def dash_product_page_id(product_id):
@@ -1001,7 +1156,7 @@ def insert_orders():
     users = c.fetchall()
     c.execute('SELECT product_id, product_price FROM product')
     products = c.fetchall()
-    for x in range (50000):
+    for x in range(50000):
         try:
             user_id = random.choices(users)
             start_date = datetime.date(year=2018, month=1, day=1)
@@ -1030,7 +1185,7 @@ def insert_orders():
 
 # do_faker_users()
 # insert_products()
-#insert_orders()
+# insert_orders()
 
 if __name__ == '__main__':
     app.debug = True
